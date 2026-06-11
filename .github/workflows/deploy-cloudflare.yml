@@ -1,0 +1,65 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm ts-check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build Next.js
+        run: pnpm build
+
+      - name: Deploy Worker
+        run: pnpm deploy
+
+      - name: Sync Worker secrets
+        env:
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_CHAT_MODEL: ${{ secrets.AI_CHAT_MODEL }}
+          AI_VISION_MODEL: ${{ secrets.AI_VISION_MODEL }}
+          SEARCH_API_URL: ${{ secrets.SEARCH_API_URL }}
+          SEARCH_API_KEY: ${{ secrets.SEARCH_API_KEY }}
+        run: |
+          printf '%s' "$AI_BASE_URL" | pnpm wrangler secret put AI_BASE_URL
+          printf '%s' "$AI_API_KEY" | pnpm wrangler secret put AI_API_KEY
+          printf '%s' "$AI_CHAT_MODEL" | pnpm wrangler secret put AI_CHAT_MODEL
+          printf '%s' "$AI_VISION_MODEL" | pnpm wrangler secret put AI_VISION_MODEL
+          if [ -n "$SEARCH_API_URL" ]; then
+            printf '%s' "$SEARCH_API_URL" | pnpm wrangler secret put SEARCH_API_URL
+          fi
+          if [ -n "$SEARCH_API_KEY" ]; then
+            printf '%s' "$SEARCH_API_KEY" | pnpm wrangler secret put SEARCH_API_KEY
+          fi
