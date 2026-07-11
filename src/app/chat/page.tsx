@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
+import { getApiUrl } from '@/lib/api-url';
 
 interface Message {
   id: string;
@@ -139,7 +140,7 @@ export default function ChatPage() {
     setAutoScroll(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(getApiUrl('/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

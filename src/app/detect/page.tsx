@@ -21,6 +21,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
+import { getApiUrl } from '@/lib/api-url';
 
 export default function DetectPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export default function DetectPage() {
     }, 500);
 
     try {
-      const response = await fetch('/api/detect', {
+      const response = await fetch(getApiUrl('/detect'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

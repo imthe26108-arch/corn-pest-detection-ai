@@ -626,7 +626,15 @@ export default function KnowledgePage() {
                   >
                     <CardContent className="p-6">
                       <div className="flex items-center gap-6">
-                        <div className="text-6xl">{disease.image}</div>
+                        <div className="relative h-28 w-36 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                          <Image
+                            src={disease.image}
+                            alt={disease.name}
+                            fill
+                            className="object-cover"
+                            sizes="144px"
+                          />
+                        </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h3 className="text-xl font-bold">{disease.name}</h3>
