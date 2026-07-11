@@ -23,7 +23,7 @@ function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: jsonHeaders });
 }
 
-async function streamCompletion(env: Env, messages: ChatMessage[], model: string) {
+async function completeChat(env: Env, messages: ChatMessage[], model: string) {
   if (!env.AI_BASE_URL || !env.AI_API_KEY) {
     throw new Error('AI 服务尚未配置');
   }
@@ -35,63 +35,25 @@ async function streamCompletion(env: Env, messages: ChatMessage[], model: string
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { ...jsonHeaders, Authorization: `Bearer ${env.AI_API_KEY}` },
-    body: JSON.stringify({ model, messages, temperature: 0.7, stream: true }),
+    body: JSON.stringify({ model, messages, temperature: 0.7, stream: false }),
   });
 
-  if (!response.ok || !response.body) {
+  if (!response.ok) {
     const detail = await response.text().catch(() => '');
     throw new Error(detail || `AI 服务返回 ${response.status}`);
   }
-  return response.body;
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    output_text?: string;
+  };
+  const content = data.choices?.[0]?.message?.content || data.output_text;
+  if (!content) throw new Error('第三方 API 返回成功，但响应中没有文本内容');
+  return content;
 }
 
-function toClientSse(source: ReadableStream<Uint8Array>) {
-  const reader = source.getReader();
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
-  let buffer = '';
-
-  return new ReadableStream<Uint8Array>({
-    async start(controller) {
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split(/\r?\n/);
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (!line.trim().startsWith('data:')) continue;
-            const payload = line.trim().slice(5).trim();
-            if (!payload || payload === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(payload) as {
-                choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }>;
-              };
-              const content = parsed.choices?.[0]?.delta?.content || parsed.choices?.[0]?.message?.content;
-              if (content) {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-              }
-            } catch {
-              // Ignore provider keep-alive chunks.
-            }
-          }
-        }
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
-        controller.close();
-      } catch {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'AI 响应流读取失败' })}\n\n`));
-        controller.close();
-      } finally {
-        reader.releaseLock();
-      }
-    },
-  });
-}
-
-function sseResponse(stream: ReadableStream<Uint8Array>) {
-  return new Response(stream, {
+function sseResponse(content: string) {
+  const body = `data: ${JSON.stringify({ content })}\n\ndata: ${JSON.stringify({ done: true })}\n\n`;
+  return new Response(body, {
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
@@ -109,8 +71,8 @@ async function handleChat(request: Request, env: Env) {
     },
     ...body.messages,
   ];
-  const source = await streamCompletion(env, messages, env.AI_CHAT_MODEL || 'gpt-4o-mini');
-  return sseResponse(toClientSse(source));
+  const content = await completeChat(env, messages, env.AI_CHAT_MODEL || 'gpt-4o-mini');
+  return sseResponse(content);
 }
 
 async function handleDetect(request: Request, env: Env) {
@@ -130,8 +92,8 @@ async function handleDetect(request: Request, env: Env) {
     },
   ];
   const model = env.AI_VISION_MODEL || env.AI_CHAT_MODEL || 'gpt-4o-mini';
-  const source = await streamCompletion(env, messages, model);
-  return sseResponse(toClientSse(source));
+  const content = await completeChat(env, messages, model);
+  return sseResponse(content);
 }
 
 async function handleSearch(request: Request, env: Env) {
