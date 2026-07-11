@@ -99,7 +99,8 @@ export default function ChatPage() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamContent, setStreamContent] = useState('');
-  const [autoScroll, setAutoScroll] = useState(true);
+  // Keep route navigation at the top; enable follow mode only after a user sends a message.
+  const [autoScroll, setAutoScroll] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
