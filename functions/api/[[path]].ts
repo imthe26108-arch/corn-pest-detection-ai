@@ -69,6 +69,10 @@ async function handleChat(request: Request, env: Env) {
       role: 'system',
       content: '你是玉米病虫害专家和农业顾问。请用简洁、准确、易懂的中文回答，优先给出可执行建议，并提醒用户科学安全用药。',
     },
+    {
+      role: 'system',
+      content: '仅回答玉米种植、病虫害识别、防治、田间管理和农业生产相关问题。遇到无关问题时，礼貌说明你的服务范围，并邀请用户提出玉米农业问题。',
+    },
     ...body.messages,
   ];
   const content = await completeChat(env, messages, env.AI_CHAT_MODEL || 'gpt-4o-mini');
@@ -123,7 +127,6 @@ export async function onRequest({ request, env }: FunctionContext): Promise<Resp
     return json({ error: 'Not found' }, 404);
   } catch (error) {
     console.error('Pages Function request failed', error);
-    const message = error instanceof Error ? error.message : '未知错误';
-    return json({ error: `AI 服务请求失败：${message}` }, 500);
+    return json({ error: 'AI 服务暂不可用，请稍后重试。' }, 500);
   }
 }

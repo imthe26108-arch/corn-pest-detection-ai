@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -11,7 +11,6 @@ import {
   Loader2,
   MessageCircle,
   Sparkles,
-  RefreshCw,
   Trash2,
   Copy,
   ThumbsUp,
@@ -101,26 +100,41 @@ export default function ChatPage() {
   const [streamContent, setStreamContent] = useState('');
   // Keep route navigation at the top; enable follow mode only after a user sends a message.
   const [autoScroll, setAutoScroll] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const scrollToBottom = () => {
-    if (autoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    if (!autoScroll) return;
+    const viewport = messagesContainerRef.current?.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]',
+    );
+    viewport?.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
   }, [messages, streamContent, autoScroll]);
 
-  const handleScroll = () => {
-    if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+  useEffect(() => {
+    const viewport = messagesContainerRef.current?.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]',
+    );
+
+    const handleScroll = () => {
+      if (!viewport) return;
+      const { scrollTop, scrollHeight, clientHeight } = viewport;
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
       setAutoScroll(isAtBottom);
+    };
+
+    viewport?.addEventListener('scroll', handleScroll);
+    return () => viewport?.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const getUserFacingError = (status: number) => {
+    if (status === 401 || status === 403) {
+      return 'AI 服务暂不可用，请检查 API 密钥和模型权限。';
     }
+    if (status === 429) {
+      return 'AI 服务繁忙或额度不足，请稍后重试。';
+    }
+    return 'AI 服务暂不可用，请稍后重试。';
   };
 
   const handleSendMessage = async (messageText?: string) => {
@@ -156,8 +170,7 @@ export default function ChatPage() {
       });
 
       if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(errorData?.error || `AI 服务请求失败（HTTP ${response.status}）`);
+        throw new Error(getUserFacingError(response.status));
       }
 
       const reader = response.body?.getReader();
@@ -180,7 +193,7 @@ export default function ChatPage() {
                   fullContent += data.content;
                   setStreamContent(fullContent);
                 }
-              } catch (e) {
+              } catch {
                 // Ignore parsing errors
               }
             }
@@ -237,12 +250,12 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       {/* Header */}
-      <section className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-12">
+      <section className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4">
         <div className="container mx-auto px-4 text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="inline-flex p-4 rounded-full bg-white/20 mb-6"
+            className="hidden sm:inline-flex p-2 rounded-full bg-white/20 mb-2"
           >
             <MessageCircle className="h-12 w-12" />
           </motion.div>
@@ -250,7 +263,7 @@ export default function ChatPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-4xl lg:text-5xl font-bold mb-4"
+            className="text-2xl font-bold mb-1"
           >
             AI 智能咨询
           </motion.h1>
@@ -258,7 +271,7 @@ export default function ChatPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-xl text-blue-100 max-w-3xl mx-auto"
+            className="text-sm text-blue-100 max-w-3xl mx-auto"
           >
             24 小时在线的农业专家，随时解答您在玉米种植过程中遇到的各种问题
           </motion.p>
@@ -266,17 +279,17 @@ export default function ChatPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="mt-6 flex items-center justify-center gap-4 flex-wrap"
+            className="mt-3 flex items-center justify-center gap-2 flex-wrap"
           >
-            <Badge className="bg-white/20 text-white px-4 py-2">
+            <Badge className="bg-white/20 text-white px-3 py-1">
               <Sparkles className="h-4 w-4 mr-2" />
               AI 驱动的智能对话
             </Badge>
-            <Badge className="bg-white/20 text-white px-4 py-2">
+            <Badge className="bg-white/20 text-white px-3 py-1">
               <Clock className="h-4 w-4 mr-2" />
               24/7 全天候服务
             </Badge>
-            <Badge className="bg-white/20 text-white px-4 py-2">
+            <Badge className="bg-white/20 text-white px-3 py-1">
               <CheckCircle2 className="h-4 w-4 mr-2" />
               专业可靠
             </Badge>
@@ -293,7 +306,7 @@ export default function ChatPage() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
-              className="lg:col-span-1"
+              className="order-2 lg:order-1 lg:col-span-1"
             >
               <Card className="sticky top-24 border-0 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
@@ -356,9 +369,9 @@ export default function ChatPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
-              className="lg:col-span-3"
+              className="order-1 lg:order-2 lg:col-span-3"
             >
-              <Card className="h-[calc(100vh-300px)] min-h-[600px] flex flex-col border-0 shadow-xl">
+              <Card className="h-[calc(100dvh-152px)] min-h-[500px] lg:h-[min(640px,calc(100vh-168px))] lg:min-h-[520px] flex flex-col border-0 shadow-xl">
                 {/* Chat Header */}
                 <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-gray-50 to-gray-100 rounded-t-lg">
                   <div className="flex items-center gap-3">
@@ -382,11 +395,8 @@ export default function ChatPage() {
                 </div>
 
                 {/* Messages Area */}
-                <ScrollArea 
-                  ref={messagesContainerRef}
-                  onScroll={handleScroll}
-                  className="flex-1 p-4"
-                >
+                <div ref={messagesContainerRef} className="flex-1 min-h-0">
+                  <ScrollArea className="h-full p-4">
                   <div className="space-y-6">
                     {messages.map((message) => (
                       <motion.div
@@ -515,9 +525,9 @@ export default function ChatPage() {
                       </motion.div>
                     )}
 
-                    <div ref={messagesEndRef} />
                   </div>
-                </ScrollArea>
+                  </ScrollArea>
+                </div>
 
                 {/* Input Area */}
                 <div className="p-4 border-t bg-gray-50 rounded-b-lg">
@@ -554,7 +564,7 @@ export default function ChatPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-white">
+      <section className="hidden" aria-hidden="true">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
