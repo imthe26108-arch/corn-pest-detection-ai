@@ -155,7 +155,8 @@ export default function ChatPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Chat request failed');
+        const errorData = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(errorData?.error || `AI 服务请求失败（HTTP ${response.status}）`);
       }
 
       const reader = response.body?.getReader();
@@ -198,7 +199,7 @@ export default function ChatPage() {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: '抱歉，AI 咨询服务暂时不可用。请检查 Cloudflare 环境变量中的 AI_BASE_URL、AI_API_KEY 和 AI_CHAT_MODEL 配置后重试。',
+        content: error instanceof Error ? error.message : 'AI 咨询服务暂时不可用，请稍后重试。',
         timestamp: new Date(),
       };
 

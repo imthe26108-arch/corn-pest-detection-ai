@@ -161,6 +161,7 @@ export async function onRequest({ request, env }: FunctionContext): Promise<Resp
     return json({ error: 'Not found' }, 404);
   } catch (error) {
     console.error('Pages Function request failed', error);
-    return json({ error: '服务暂时不可用，请稍后重试。' }, 500);
+    const message = error instanceof Error ? error.message : '未知错误';
+    return json({ error: `AI 服务请求失败：${message}` }, 500);
   }
 }
